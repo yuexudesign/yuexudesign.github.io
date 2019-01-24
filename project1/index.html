@@ -1,0 +1,526 @@
+<html>
+
+<head>
+<title>Project 1 - INFO 5100 - Data-driven Web Pages</title>
+<style>
+	body {background-color: #ccc; font-family: "Avant Garde", Avantgarde, "Century Gothic", CenturyGothic, "AppleGothic", sans-serif; padding-right:60px; padding-left: 60px; }
+	svg {border: solid #ccc 1px; }
+	path.country { fill: #fff; stroke: #888; }
+	#map {display: block; margin:auto; background-color: #ccc}
+	#USmap{display: block; margin:auto; background-color: #ccc;}
+	#timeline{display: block; float:left;}
+	h3{font-size:15.5pt;}
+</style>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="http://d3js.org/topojson.v2.min.js"></script>
+<script src="https://d3js.org/d3-array.v1.min.js"></script>
+<script src="https://d3js.org/d3-geo.v1.min.js"></script>
+<script src="https://d3js.org/d3-geo-projection.v1.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3-legend/2.21.0/d3-legend.js"></script>
+
+</head>
+
+<body>
+	<h1 style="text-align: center; padding-top: 20px; color: #778899; text-shadow: -1px 0 #fff,0 1px #fff,1px 0 #fff,0 -1px #fff;">Extinct &#38; Endangered Languages Around the World</h1>
+	<p style="text-align: center; color:black"> <b>Group members</b>: Ming Cheng, Yue Xu, Chawisara Uswachoke </p>
+	<p><br>
+		<svg id="map" height="600" width="1200"></svg><br><font size = "3">
+		The map above shows the distribution of the extinct and endangered languages around the world. We can observe that every continent (with Antarctica as an exception, of course) and almost every country has one or more languages that are either vulnerable, endangered, or extinct.
+		<br><br> It is especially interesting to see that most vulnerable/extinct languages are located along the borders of each country and in the small island countries, such as the southern border of China and the west Coast of United States of America. 
+		<br><br>Now, let's narrow down the scope for a bit and zoom into our country -- the United States of America:
+		<br><br>
+		<svg id="USmap" height="600" width="1200"></svg>
+		<font size = "3"><b>* The area of the circle represents the number of speakers for the language.</b>
+		<br><b>* Languages with number of speakers of 3000 or above are labeled on the US map.</b></font>
+		<br> <br>Wow, the extinct languages are so concentrated in the west coast and the sate of Oklahoma. Let's zoom in to look at the west coast! Wonder what happened to those languages?!</font>
+		<br>
+		<svg id="timeline" height=300 width="300"></svg><br>
+		<font size = "3"> Look at all the languages at west coast. Most of them are severely or critically endangered, or even extinct. We suspect that this might have been because the west coast used to be <a href="https://cdn0.vox-cdn.com/thumbor/qikf-ogRVfPnSd9JPRZOt5h3tTY=/800x0/filters:no_upscale()/cdn0.vox-cdn.com/uploads/chorus_asset/file/4103386/Screen_Shot_2015-09-28_at_10.36.08_AM.0.png">part of Mexico and Canada</a> during the 1900s; but this is just a speculation.
+		<br><br>The graph on the left shows the cumulative number of languages that became extinct over time. Note that the extinction years are approximated for some languages, since it is not easy to track the exact dates when a language dies out. We can see that <b>a lot</b> of languages are becoming extinct in the recent years.
+		<br><br>So as a conclusion...
+		</font><br>
+		<h3>&#9888; Languages are extincting every minute now! Stop learning Java; learn a real language!</h3>
+		<br><br>
+		<script>
+
+		var svgWorldMap = d3.select("#map");
+		var svgUSmap=d3.select("#USmap");
+
+		var worldProjection = d3.geoNaturalEarth();
+		var pathGenerator = d3.geoPath().projection(worldProjection);
+		var mapData;
+		var countries;
+		var languageData;
+
+		var USprojection = d3.geoAlbersUsa();
+		var USpathGenerator = d3.geoPath().projection(USprojection);
+		var states;
+
+		//applied to all rows, select 5 columns, change names, and convert strings to numbers. 
+		var parseRow = function(line) {
+		
+			return{
+				Language: line["Name in English"], //name of the language
+				Latitude: Number(line["Latitude"]),
+				Longitude: Number(line["Longitude"]),
+				SpeakersNo: Number(line["Number of speakers"]),
+				Degree: line["Degree of endangerment"],
+				Country: line["Countries"],
+			}
+		};
+
+		//read csv files and call showmap functions
+		d3.queue()
+		.defer(d3.json, "world-50m.json")
+		.defer(d3.csv, "data.csv", parseRow)
+		.defer(d3.json, "us.json")
+		.await(function(error, worldMapData, rawLanguage, USMapData){
+			mapData = worldMapData;
+			countries = topojson.feature(mapData, mapData.objects.countries);
+			states=topojson.feature(USMapData, USMapData.objects.states);
+			languageData=rawLanguage;
+			showMap(languageData);
+			showUSmap(languageData, states);
+		});
+
+		var colors=["#581845", "#900C3F", "#C70039", "#FF5733",  "#FFC300"];
+
+
+		//create new set of coordinates for language locations + colors + name of Language
+		var dataPoints = function(data){
+			var result = [];
+			data.forEach(function(d){
+				switch(d.Degree){
+					case "Extinct":
+						result.push([d.Longitude, d.Latitude, colors[0], d.Language]);
+						break;
+					case "Critically endangered":
+						result.push([d.Longitude, d.Latitude, colors[1], d.Language]);
+						break;
+					case "Severely endangered":
+						result.push([d.Longitude, d.Latitude, colors[2], d.Language]);
+						break;
+					case "Definitely endangered":
+						result.push([d.Longitude, d.Latitude, colors[3], d.Language]);
+						break;
+					case "Vulnerable":
+						result.push([d.Longitude, d.Latitude, colors[4], d.Language]);
+						break;
+				}
+			});
+
+			return result;
+		}
+
+		//create new set of coordinates for language locations + colors + number of speakers + language name
+		var USdataPoints = function(data){
+
+			var result = [];
+			data.forEach(function(d){
+
+				if(d.Country == "United States of America"){
+					switch(d.Degree){
+						case "Extinct":
+							result.push([d.Longitude, d.Latitude, colors[0], d.SpeakersNo, d.Language]);
+							break;
+						case "Critically endangered":
+							result.push([d.Longitude, d.Latitude, colors[1], d.SpeakersNo, d.Language]);
+							break;
+						case "Severely endangered":
+							result.push([d.Longitude, d.Latitude, colors[2], d.SpeakersNo, d.Language]);
+							break;
+						case "Definitely endangered":
+							result.push([d.Longitude, d.Latitude, colors[3], d.SpeakersNo, d.Language]);
+							break;
+						case "Vulnerable":
+							result.push([d.Longitude, d.Latitude, colors[4], d.SpeakersNo, d.Language]);
+							break;
+					}
+				}
+			});
+
+			return result;
+		}
+
+		//show World map of endangered or extinct languages
+		function showMap(languageData) {
+
+			//Map Projection
+			worldProjection.fitExtent([[0,0], [svgWorldMap.attr("width"), svgWorldMap.attr("height")]], countries);
+
+			var paths=svgWorldMap.selectAll("path.country").data(countries.features);
+			paths.enter().append("path").attr("class","country")
+			.attr("d", function(country){
+				return pathGenerator(country);
+			});
+
+			var interestingPoints = dataPoints(languageData);
+
+			interestingPoints.forEach(function (points) {
+
+				//draw data points on map
+				svgWorldMap.append("circle")
+				.attr("cx", worldProjection(points)[0])
+				.attr("cy", worldProjection(points)[1])
+				.attr("r", 3)
+				.style("opacity", 0.8)
+				.style("fill", points[2])
+				.style("stroke", "white");
+
+				//Legend of world map
+				//Extinct languages
+				svgWorldMap.append("circle")
+				.attr("r", 5)
+				.attr("cx", 25)
+				.attr("cy", 430)
+				.style("fill", colors[0])
+				.style("stroke", "white");
+
+				svgWorldMap.append("text")
+				.attr("x", 35)
+				.attr("y", 435)
+				.text("Extinct Languages");
+
+				//Critically Endangered Languages
+				svgWorldMap.append("circle")
+				.attr("r", 5)
+				.attr("cx", 25)
+				.attr("cy", 455)
+				.style("fill", colors[1])
+				.style("stroke", "white");
+
+				svgWorldMap.append("text")
+				.attr("x", 35)
+				.attr("y", 460)
+				.text("Critically Endangered Languages");
+
+				//Severely Endangered Languages
+				svgWorldMap.append("circle")
+				.attr("r", 5)
+				.attr("cx", 25)
+				.attr("cy", 480)
+				.style("fill", colors[2])
+				.style("stroke", "white");
+
+				svgWorldMap.append("text")
+				.attr("x", 35)
+				.attr("y", 485)
+				.text("Severely Endangered Languages");
+
+				//Definitely Endangered Languages
+				svgWorldMap.append("circle")
+				.attr("r", 5)
+				.attr("cx", 25)
+				.attr("cy", 505)
+				.style("fill", colors[3])
+				.style("stroke", "white");
+
+				svgWorldMap.append("text")
+				.attr("x", 35)
+				.attr("y", 510)
+				.text("Definitely Endangered Languages");
+
+				//Vulnerable languages
+				svgWorldMap.append("circle")
+				.attr("r", 5)
+				.attr("cx", 25)
+				.attr("cy", 530)
+				.style("fill", colors[4])
+				.style("stroke", "white");
+
+				svgWorldMap.append("text")
+				.attr("x", 35)
+				.attr("y", 535)
+				.text("Vulnerable Languages");
+			});
+		}
+
+		//Show map of US
+		function showUSmap(languageData, states){
+
+			//map projection
+			USprojection.fitExtent([[400,0], [svgUSmap.attr("width"), svgUSmap.attr("height")]], states);
+
+			//Scale number of speakers to different size of circles
+			var languageExtent = d3.extent(languageData, function (d) { return d.SpeakersNo; });
+			var languageScale = d3.scaleLinear().domain(languageExtent).range([3,4000]);
+
+			//draw US map
+			var paths=svgUSmap.selectAll("path.country").data(states.features);
+			paths.enter().append("path").attr("class","country")
+			.merge(paths)
+			.attr("d", function(country){
+				return USpathGenerator(country);
+			});
+
+			//Legend for US map
+			//Extinct languages
+			svgUSmap.append("circle")
+			.attr("r", 5)
+			.attr("cx", 870)
+			.attr("cy", 500)
+			.style("fill", colors[0])
+			.style("stroke", "white");
+
+			svgUSmap.append("text")
+			.attr("x", 878)
+			.attr("y", 504)
+			.text("Extinct Languages")
+			.attr("font-size", "12px");
+
+			//Critically Endangered Languages
+			svgUSmap.append("circle")
+			.attr("r", 5)
+			.attr("cx", 870)
+			.attr("cy", 515)
+			.style("fill", colors[1])
+			.style("stroke", "white");
+
+			svgUSmap.append("text")
+			.attr("x", 878)
+			.attr("y", 519)
+			.text("Critically Endangered Languages")
+			.attr("font-size", "12px");
+
+			//Severely Endangered Languages
+			svgUSmap.append("circle")
+			.attr("r", 5)
+			.attr("cx", 870)
+			.attr("cy", 530)
+			.style("fill", colors[2])
+			.style("stroke", "white");
+
+			svgUSmap.append("text")
+			.attr("x", 878)
+			.attr("y", 534)
+			.text("Severely Endangered Languages")
+			.attr("font-size", "12px");
+
+			//Definitely Endangered Languages
+			svgUSmap.append("circle")
+			.attr("r", 5)
+			.attr("cx", 870)
+			.attr("cy", 545)
+			.style("fill", colors[3])
+			.style("stroke", "white");
+
+			svgUSmap.append("text")
+			.attr("x", 878)
+			.attr("y", 549)
+			.text("Definitely Endangered Languages")
+			.attr("font-size", "12px");
+
+			//Vulnerable languages
+			svgUSmap.append("circle")
+			.attr("r", 5)
+			.attr("cx", 870)
+			.attr("cy", 560)
+			.style("fill", colors[4])
+			.style("stroke", "white");
+
+			svgUSmap.append("text")
+			.attr("x", 878)
+			.attr("y", 564)
+			.text("Vulnerable Languages")
+			.attr("font-size", "12px");
+			
+			//plot data points on the map
+			var interestingPoints = USdataPoints(languageData);
+
+			interestingPoints.forEach(function (points) {
+				var point=[points[0],points[1]];
+
+				svgUSmap.append("circle")
+					.attr("cx", USprojection(point)[0])
+					.attr("cy", USprojection(point)[1])
+					.attr("r", languageScale(points[3]))
+					.style("opacity", 0.8)
+					.style("fill", points[2])
+					.style("stroke", "white");
+
+				//plot text on the map, on top of each representing circle
+				svgUSmap.append("text")	
+					.attr("x", USprojection(points)[0])
+					.attr("y", USprojection(points)[1]-languageScale(points[3])-7)
+					.text(function(d){
+						if (points[3]>3000){
+							return points[4];}
+						})
+					.attr("fill", points[2])
+					.attr("font-size", "7pt")
+					.style("text-anchor", "middle")
+					.style("opacity", 0.9)
+					.style("stroke", "grey")
+					.style("stroke-width", "0.1px");
+				
+			});
+
+			//magnifying lines
+			svgUSmap.append("line")
+				.attr("x1", 500)
+				.attr("y1", 160)
+				.attr("x2", 379)
+				.attr("y2", 0)
+				.style("stroke","#f0f0f0")
+				.style("stroke-width","3px")
+				.style("opacity", 0.8);
+
+			svgUSmap.append("line")
+				.attr("x1", 500)
+				.attr("y1", 300)
+				.attr("x2", 379)
+				.attr("y2", 600)
+				.style("stroke","#f0f0f0")
+				.style("stroke-width","3px")
+				.style("opacity", 0.9);
+
+			//paint on top of US map to make the background blend in
+			svgUSmap.append("rect")
+			.attr("height",600)
+			.attr("width", 375)
+			.attr("x", 0)
+			.attr("y",0)
+			.style("fill", "#ccc")
+			.style("stroke", "white")
+			.style("stroke-width", "10px");
+
+			//svg for zoomed in map of west coast
+			svgUSmap.append("svg")
+			.attr("height",593)
+			.attr("width", 375)
+			.attr("x", 0)
+			.attr("y",4)
+			.attr("id","westcoast");
+
+
+			showWestCoast(d3.select("#westcoast"), languageData, states);
+
+		}
+
+		//Map of zoomed in West Coast
+		function showWestCoast(svgUSmap, languageData, states){
+			//Map Projection
+			var USprojection = d3.geoAlbersUsa();
+			var USpathGenerator = d3.geoPath().projection(USprojection);
+			var states;
+
+			USprojection.fitExtent([[-100,-800], [3000,1800]], states);
+
+			//scale of number of speakers
+			var languageExtent = d3.extent(languageData, function (d) { return d.SpeakersNo; });
+			var languageScale = d3.scaleLinear().domain(languageExtent).range([3,4000]);
+
+			var paths=svgUSmap.selectAll("path.country").data(states.features);
+			paths.enter().append("path").attr("class","country")
+			.merge(paths)
+			.attr("d", function(country){
+				return USpathGenerator(country);
+			});
+
+			var interestingPoints = USdataPoints(languageData);
+
+			//plot data points onto the west coast map
+			interestingPoints.forEach(function (points) {
+				var point=[points[0],points[1]];
+
+				svgUSmap.append("circle")
+					.attr("cx", USprojection(point)[0])
+					.attr("cy", USprojection(point)[1])
+					.attr("r", languageScale(points[3]))
+					.style("opacity", 0.8)
+					.style("fill", points[2])
+					.style("stroke", "white");
+
+				//plot text on the map
+				svgUSmap.append("text")	
+					.attr("x", USprojection(points)[0])
+					.attr("y", USprojection(points)[1]-7)
+					.text(points[4])
+					.attr("fill", points[2])
+					.attr("font-size", "9pt")
+					.style("text-anchor", "middle")
+					.style("opacity", 0.9)
+					.style("stroke", "grey")
+					.style("stroke-width", "0.1px");
+				
+			});
+			
+
+		}
+
+		//svg for line graph of extinction timeline
+		var svgLine = d3.select("#timeline");
+		var dataExtinct;
+
+		var parseLine = function(line) {
+			return{
+			    Year: line["Year of Extinction"],
+			    Frequency: line["# Extinct"],
+			    SumFreq: line["Sum of Frequency"],
+			}
+		};
+
+		//reading the csv file and call graph generator function
+		d3.queue()
+		.defer(d3.csv, "extinction.csv", parseLine)
+		.await(function(error, extinctionData){
+			dataExtinct=extinctionData;
+			showTimeline(dataExtinct);
+		});
+
+		var parseTime = d3.timeParse("%Y");
+
+
+		//create line graph for extinct languages timeline
+		function showTimeline(data){
+			var yearExtent = d3.extent(data, function (d) { return parseTime(d.Year); });
+			var frequencyExtent=d3.extent(data, function(d){return parseInt(d.SumFreq); });
+
+			//x axis: year
+			var timeScale = d3.scaleTime().domain(yearExtent).range([40, 260]);
+			var timeAxis = d3.axisBottom(timeScale);
+
+			//y axis: cumulative frequency of # extinct languages
+			var frequencyScale = d3.scaleLinear().domain(frequencyExtent).range([260, 40]);
+			var frequencyAxis = d3.axisLeft(frequencyScale);
+
+			//x axis label
+			svgLine.append("text")
+			.attr("x", 150)
+			.attr("y", 292)
+			.text("Year")
+			.attr("font-size", "11pt")
+			.style("text-anchor", "middle");
+
+			//y axis label
+			svgLine.append("text")
+			.attr("x", -143)
+			.attr("y", 12)
+			.text("Cumulative # of Extinct Languages")
+			.attr("font-size", "11pt")
+			.style("text-anchor", "middle")
+			.attr("transform", "rotate(-90)");
+
+			//draw line
+			var plot = svgLine.append("g");
+			plot.append("g").attr("transform","translate(0,260)").call(timeAxis);
+			plot.append("g").attr("transform","translate(40,0)").call(frequencyAxis);
+
+			var pathGenerator = d3.line()
+			.x(function (d) { return timeScale(parseTime(d.Year)); })
+			.y(function (d) { return frequencyScale(parseInt(d.SumFreq)); });
+
+			svgLine.append("path").attr("d", pathGenerator(data))
+			.attr("stroke", "#581845")
+			.attr("stroke-width", 4)
+			.attr("fill", "none");
+		}       
+		       
+
+		</script>
+	</p>
+</svg>
+<P></P>
+</body>
+
+</html>
